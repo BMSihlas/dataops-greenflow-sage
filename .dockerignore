@@ -1,0 +1,76 @@
+# Ignore virtual environments
+venv/
+**/venv/
+
+# Ignore Python cache files
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore logs
+logs/
+**/logs/
+*.log
+
+# Ignore environment variables (Secrets)
+.env
+.env.local
+.env.*  # Ignore all .env files except those you explicitly include
+
+# Ignore IDE/editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore data files that shouldn't be in the image
+data/
+**/data/
+*.parquet  # Exclude parquet files unless specifically needed
+*.csv
+
+# Ignore Docker-related files
+.dockerignore
+docker-compose.override.yml
+
+# Ignore node_modules (if any frontend or dependencies exist)
+node_modules/
+**/node_modules/
+npm-debug.log
+yarn-error.log
+
+# Ignore compiled binaries (if applicable)
+dist/
+build/
+*.egg-info/
+
+# Ignore API-specific unnecessary files
+api/__pycache__/
+api/.pytest_cache/
+api/test-reports/
+
+# Ignore Dashboard-specific unnecessary files
+dashboard/__pycache__/
+dashboard/.pytest_cache/
+dashboard/test-reports/
+
+# Ignore DB-specific unnecessary files
+db/__pycache__/
+db/.pytest_cache/
+db/test-reports/
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
