@@ -2,10 +2,14 @@ FROM python:3.10.11
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /app
-RUN chmod +x /app/entrypoint.sh
+COPY ./db /app/db
 
-CMD ["/bin/sh", "-c", "./entrypoint.sh"]
+COPY ./api /app/api
+RUN chmod +x /app/api/entrypoint.sh
+
+ENV PYTHONPATH=/app
+
+CMD ["/bin/sh", "-c", "/app/api/entrypoint.sh"]
