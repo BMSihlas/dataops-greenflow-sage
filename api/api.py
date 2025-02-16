@@ -52,13 +52,23 @@ def create_jwt_token(username: str) -> str:
     }
     return jwt.encode(payload, API_AUTH_SECRET_KEY, algorithm=ALGORITHM)
 
+def get_current_user(token: str = Security(oauth2_scheme)):
+    """Validate JWT token and return the username."""
+    try:
+        payload = jwt.decode(token, API_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
+        return payload["sub"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 @router.get("/")
 def root():
     """Root endpoint to check API health."""
     return {"message": "GreenFlow Sage API is running!"}
 
 @router.get("/insights")
-def get_insights():
+def get_insights(username: str = Depends(get_current_user)):
     """Fetch sustainability insights from PostgreSQL."""
     try:
         engine = db_connect()
@@ -73,7 +83,7 @@ def get_insights():
         raise HTTPException(status_code=500, detail=f"Error fetching insights: {str(e)}")
 
 @router.get("/insights/{sector}")
-def get_sector_insights(sector: str):
+def get_sector_insights(sector: str, username: str = Depends(get_current_user)):
     """Fetch insights for a specific sector."""
     try:
         engine = db_connect()
@@ -90,7 +100,7 @@ def get_sector_insights(sector: str):
         raise HTTPException(status_code=500, detail=f"Error fetching insights for {sector}: {str(e)}")
 
 @router.get("/sectors")
-def get_sectors():
+def get_sectors(username: str = Depends(get_current_user)):
     """Fetch list of unique sectors from PostgreSQL."""
     try:
         engine = db_connect()
@@ -103,7 +113,7 @@ def get_sectors():
         raise HTTPException(status_code=500, detail=f"Error fetching sectors: {str(e)}")
 
 @router.get("/sensor-data")
-def get_sensor_data(limit: int = 10):
+def get_sensor_data(limit: int = 10, username: str = Depends(get_current_user)):
     """Fetch latest sensor data records from PostgreSQL."""
     try:
         engine = db_connect()
@@ -119,7 +129,7 @@ def get_sensor_data(limit: int = 10):
         raise HTTPException(status_code=500, detail=f"Error fetching sensor data: {str(e)}")
 
 @router.post("/load-data")
-def load_data(x_api_key: str = Header(None)):
+def load_data(x_api_key: str = Header(None), username: str = Depends(get_current_user)):
     """Secure API to load Parquet data into PostgreSQL."""
     if not x_api_key or x_api_key != API_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
