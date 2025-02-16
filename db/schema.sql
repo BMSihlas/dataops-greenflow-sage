@@ -16,3 +16,12 @@ CREATE TABLE IF NOT EXISTS insights (
     avg_water_m3 FLOAT,
     avg_co2_emissions FLOAT
 );
+
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_hash text NOT NULL,
+    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()),
+    last_login BIGINT DEFAULT NULL
+);
