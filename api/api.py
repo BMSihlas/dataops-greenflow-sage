@@ -1,11 +1,12 @@
 import os
 import sys
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, APIRouter, Query
 from sqlalchemy.engine.base import Engine
 from dotenv import load_dotenv, find_dotenv
 from db.utils import get_db_engine, fetch_table_data
 from db.load_data import main as deploy_parquet_data
 from db.process_insights import main as process_insights
+from typing import Optional
 
 ENV_VARS: list[str] = ["API_SECRET_KEY"]
 
@@ -31,6 +32,8 @@ app = FastAPI(
     version="1.0"
 )
 
+router = APIRouter(prefix="/api/v1")
+
 def db_connect() -> Engine:
     return get_db_engine()
 
@@ -39,7 +42,7 @@ def root():
     """Root endpoint to check API health."""
     return {"message": "GreenFlow Sage API is running!"}
 
-@app.get("/insights")
+@router.get("/insights")
 def get_insights():
     """Fetch sustainability insights from PostgreSQL."""
     try:
@@ -54,7 +57,7 @@ def get_insights():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching insights: {str(e)}")
 
-@app.get("/insights/{sector}")
+@router.get("/insights/{sector}")
 def get_sector_insights(sector: str):
     """Fetch insights for a specific sector."""
     try:
@@ -71,7 +74,7 @@ def get_sector_insights(sector: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching insights for {sector}: {str(e)}")
 
-@app.get("/sectors")
+@router.get("/sectors")
 def get_sectors():
     """Fetch list of unique sectors from PostgreSQL."""
     try:
@@ -84,7 +87,7 @@ def get_sectors():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching sectors: {str(e)}")
 
-@app.get("/sensor-data")
+@router.get("/sensor-data")
 def get_sensor_data(limit: int = 10):
     """Fetch latest sensor data records from PostgreSQL."""
     try:
@@ -100,7 +103,7 @@ def get_sensor_data(limit: int = 10):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching sensor data: {str(e)}")
 
-@app.post("/load-data")
+@router.post("/load-data")
 def load_data(x_api_key: str = Header(None)):
     """Secure API to load Parquet data into PostgreSQL."""
     if not x_api_key or x_api_key != API_SECRET_KEY:
@@ -115,3 +118,50 @@ def load_data(x_api_key: str = Header(None)):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading data: {str(e)}")
+
+@router.get("/companies")
+def get_companies(
+    sector: Optional[str] = Query(None, description="Filter by sector"),
+    page: int = Query(1, description="Page number"),
+    page_size: int = Query(10, description="Number of results per page"),
+    order_by: Optional[str] = Query("nr", description="Order by column"),
+    order_dir: Optional[str] = Query(None, description="Order direction (asc or desc)")
+):
+    """Fetch paginated list of companies from PostgreSQL."""
+    try:
+        engine = db_connect()
+        company_df = fetch_table_data(engine, "sensor_data")
+
+        if company_df is None or company_df.empty:
+            raise HTTPException(status_code=404, detail="No companies found.")
+        
+        required_columns = {"company", "sector", "energy_kwh", "water_m3", "co2_emissions"}
+        if not required_columns.issubset(company_df.columns):
+            raise HTTPException(status_code=500, detail="Missing required columns in database table.")
+        
+        if sector:
+            company_df = company_df[company_df["sector"] == sector]
+        
+        company_df = company_df.reset_index(drop=True)
+        company_df.insert(0, "nr.", company_df.index + 1)
+
+        if order_by and order_by in company_df.columns:
+            ascending = order_dir.lower() != "desc"
+            company_df = company_df.sort_values(by=order_by, ascending=ascending)
+
+        total_pages = max((len(company_df) + page_size - 1) // page_size, 1)
+        page = max(1, min(page, total_pages))
+        paginated_companies = company_df.iloc[(page - 1) * page_size : page * page_size]
+
+        companies_list = paginated_companies.to_dict(orient="records")
+
+        return {
+            "companies": companies_list,
+            "total_pages": total_pages,
+            "current_page": page
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching companies: {str(e)}")
+
+app.include_router(router)
