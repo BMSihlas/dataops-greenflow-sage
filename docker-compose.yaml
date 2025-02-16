@@ -42,5 +42,20 @@ services:
       - ./db:/app/db
       - ./data:/app/data
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: greenflow_dashboard
+    env_file:
+      - .env
+    ports:
+      - "${DASHBOARD_PORT}:${DASHBOARD_PORT}"
+    depends_on:
+      - api
+    command: ["streamlit", "run", "dashboard/app.py", "--server.port=${DASHBOARD_PORT}", "--server.address=0.0.0.0"]
+    volumes:
+      - ./dashboard:/app/dashboard
+
 volumes:
   db_data:
