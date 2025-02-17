@@ -11,6 +11,6 @@ COPY dashboard /app/dashboard
 
 RUN mkdir -p ~/.streamlit && echo "[browser]" > ~/.streamlit/config.toml && echo "gatherUsageStats = false" >> ~/.streamlit/config.toml
 
-EXPOSE ${DASHBOARD_PORT}
+EXPOSE 8501
 
-CMD ["streamlit", "run", "dashboard/app.py", "--server.port=${DASHBOARD_PORT}", "--server.address=0.0.0.0", "--server.runOnSave", "true", "--server.enableCORS", "true"]
+CMD ["streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.runOnSave", "true", "--server.enableCORS", "true"]
