@@ -59,7 +59,7 @@ if st.session_state.get("logged_in"):
         **Bruno Matos**  
         Fullstack Developer & Software Engineer  
         Passionate about Programming, Data, and Sustainable Tech.  
-        [🔗 GitHub](https://github.com/BMSihlas) | [📧 Contact](mailto:bruno.rosal.matos@gmail.com)
+        [🔗 GitHub](https://github.com/BMSihlas/dataops-greenflow-sage) | [📧 Contact](mailto:bruno.rosal.matos@gmail.com)
         """
     )
 
