@@ -1,6 +1,6 @@
 import os
 import sys
-from fastapi import FastAPI, HTTPException, Depends, Header, APIRouter, Query, Security
+from fastapi import FastAPI, HTTPException, Depends, Header, APIRouter, Query, Security, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.engine.base import Engine
 from dotenv import load_dotenv, find_dotenv
@@ -30,6 +30,7 @@ if missing_vars:
 API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 API_AUTH_SECRET_KEY = os.getenv("API_AUTH_SECRET_KEY")
 ALGORITHM: str = "HS256"
+TTL = 24 * 60  # 24 hours
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -48,7 +49,7 @@ def db_connect() -> Engine:
 def create_jwt_token(username: str) -> str:
     payload = {
         "sub": username,
-        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=60)
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=TTL)
     }
     return jwt.encode(payload, API_AUTH_SECRET_KEY, algorithm=ALGORITHM)
 
@@ -216,7 +217,7 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
 
-@router.post("/register")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(request: RegisterRequest):
     """Register a new user."""
     try:
