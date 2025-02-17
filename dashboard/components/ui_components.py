@@ -1,5 +1,5 @@
 import streamlit as st
-from api_utils import fetch_sectors, fetch_companies_by_sector
+from components.api_utils import fetch_sectors, fetch_companies_by_sector
 
 def sector_selector():
     """Dropdown for sector selection."""

@@ -1,133 +1,69 @@
 import os
 import streamlit as st
-import pandas as pd
-from api_utils import fetch_sector_insights, fetch_companies_by_sector
-from visualizations import plot_bar_chart, plot_correlation_heatmap
-from ui_components import sector_selector, order_by_selector
+from account.auth import login, logout, is_token_valid, JWT_LOCAL_STORAGE_KEY, JWT_TOKEN_SESSION_KEY, USERNAME_SESSION_KEY
+from reports.home import authenticated_home
+from reports.dashboard import dashboard
+from reports.sectors import sector
+from streamlit_js_eval import streamlit_js_eval
+import time
 
-st.set_page_config(page_title="GreenFlow Sage - Dashboard", layout="wide")
+# Set page configuration
+st.set_page_config(page_title="GreenFlow Sage", layout="wide")
 
-if "page" not in st.session_state:
-    st.session_state.page = "General Overview"
+# Check if user is logged in
+if JWT_TOKEN_SESSION_KEY not in st.session_state:
+    stored_token = streamlit_js_eval(js_expressions=f"localStorage.getItem('{JWT_LOCAL_STORAGE_KEY}')", key="get_token")
 
-st.title("📊 GreenFlow Sage")
-st.subheader("Welcome")
+    stored_username = streamlit_js_eval(js_expressions=f"localStorage.getItem('{USERNAME_SESSION_KEY}')", key="get_username")
 
-# Sidebar - Navigation
-image_path = os.path.join("dashboard", "assets", "greenflow_logo.png")
-st.sidebar.image(image_path, width=120, use_container_width=True)
-st.sidebar.subheader("Navigation")
-
-# Clickable buttons to change page
-if st.sidebar.button(label="📊 Overview", use_container_width=True):
-    st.session_state.page = "General Overview"
-if st.sidebar.button(label="🔍 Detailed View", use_container_width=True):
-    st.session_state.page = "Detailed Sector View"
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("📌 About the Author")
-st.sidebar.markdown(
-    """
-    **Bruno Matos**  
-    Fullstack Developer & Software Engineer  
-    Passionate about Programming, Data, and Sustainable Tech.  
-    [🔗 GitHub](https://github.com/BMSihlas) | [📧 Contact](mailto:bruno.rosal.matos@gmail.com)
-    """
-)
-
-# Load sector insights
-sector_data = fetch_sector_insights()
-if sector_data is None:
-    st.error("Failed to fetch sector insights. Check API connection.")
-    st.stop()
-
-sector_df = pd.DataFrame(sector_data)
-
-# General Overview Tab
-if st.session_state.page == "General Overview":
-    st.header("📊 General Sector Overview")
-    st.subheader("📊 Sector-Wide Environmental Averages")
-    st.write("This section provides a high-level summary of energy, water, and CO₂ emissions by sector.")
-    col1, col2 = st.columns(2)
-
-    # Display sector-wide averages
-    with col1:
-        st.subheader("Average Energy Consumption by Sector")
-        plot_bar_chart(sector_df, x="sector", y="avg_energy_kwh", ylabel="Avg Energy (kWh)")
-    with col2:
-        ""
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Average Water Usage by Sector")
-        plot_bar_chart(sector_df, x="sector", y="avg_water_m3", ylabel="Avg Water (m³)")
-    with col2:
-        ""
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Average CO₂ Emissions by Sector")
-        plot_bar_chart(sector_df, x="sector", y="avg_co2_emissions", ylabel="Avg CO₂ Emissions")
-        ""
+    time.sleep(0.3)
     
-    # Heatmap
-    st.subheader("Correlation Heatmap of Environmental Factors")
-    numeric_sector_df = sector_df.select_dtypes(include=['number'])
-    plot_correlation_heatmap(numeric_sector_df)
+    if stored_token is not None and stored_username is not None:
+        if is_token_valid():
+            st.session_state.update({
+                JWT_TOKEN_SESSION_KEY: stored_token,
+                USERNAME_SESSION_KEY: stored_username,
+                "logged_in": True
+            })
+            if "first_rerun" not in st.session_state:
+                st.session_state["first_rerun"] = True
+                st.query_params.from_dict({"home": "true"})
+                st.rerun()
+        else:
+            logout()
 
-# Detailed Sector View Tab
-elif st.session_state.page == "Detailed Sector View":
-    st.header("🔍 Sector-Specific Analysis")
-    st.write("Explore company-level details within a selected sector.")
+time.sleep(0.5)
 
-    selected_sector = sector_selector()
+image_path = os.path.join("dashboard", "assets", "greenflow_logo.png")
+st.logo(image_path, icon_image=image_path, size="large")
 
-    st.subheader(f"Companies in Sector {selected_sector}")
+if st.session_state.get("logged_in"):
+    logout_page = st.Page(logout, title="Log out", icon=":material/logout:")
+    home_page = st.Page(authenticated_home, title="Home", icon=":material/home:")
+    dashboard_page = st.Page(dashboard, title="Global", icon=":material/dashboard:")
+    sectors_page = st.Page(sector, title="Sectors", icon=":material/maps_home_work:")
+    sage_structure = {
+        "GREENFLOW - SAGE": [
+            home_page,
+            dashboard_page,
+            sectors_page,
+        ],
+    }
 
-    col1, col2, col3 = st.columns([1, 0.5, 0.5])
-    with col1:
-        order_by, order_dir = order_by_selector()
-    with col2:
-        page_size = st.selectbox("Results per Page", [5, 10, 15, 20], index=1)
-    with col3:
-        page = st.number_input("Current Page", min_value=1, value=1, step=1)
+    navigation_structure = {"Account": [logout_page]}
+    pg = st.navigation(sage_structure | navigation_structure)
 
-    company_data, total_pages = fetch_companies_by_sector(selected_sector, page_size=page_size)
+    st.sidebar.subheader("Created by")
+    st.sidebar.markdown(
+        """
+        **Bruno Matos**  
+        Fullstack Developer & Software Engineer  
+        Passionate about Programming, Data, and Sustainable Tech.  
+        [🔗 GitHub](https://github.com/BMSihlas) | [📧 Contact](mailto:bruno.rosal.matos@gmail.com)
+        """
+    )
 
-    if total_pages < 1:
-        st.warning(f"No company data available for {selected_sector}.")
-        st.stop()
+else:
+    pg = st.navigation([st.Page(login)])
 
-    if page > total_pages:
-        st.warning(f"Only {total_pages} pages available.")
-        page = total_pages
-
-    company_data, total_pages = fetch_companies_by_sector(selected_sector, page=page, page_size=page_size, order_by=order_by, order_dir=order_dir)
-
-    if not company_data:
-        st.warning(f"No company data available for {selected_sector}.")
-    else:
-        company_df = pd.DataFrame(company_data)
-
-        st.dataframe(company_df)
-        st.write(f"Page {page} of {total_pages}")
-        
-        # Charts for company-specific insights
-        st.subheader(f"Energy, Water, and CO₂ Insights for {selected_sector}")
-        col1, col2 = st.columns(2)
-        with col1:
-            plot_bar_chart(company_df, x="company", y="energy_kwh", ylabel="Energy (kWh)", title="Energy Consumption (kWh)")
-        with col2:
-            ""
-            
-        col1, col2 = st.columns(2)
-        with col1:
-            plot_bar_chart(company_df, x="company", y="water_m3", ylabel="Water (m³)", title="Water Usage (m³)")
-        with col2:
-            ""
-            
-        col1, col2 = st.columns(2)
-        with col1:
-            plot_bar_chart(company_df, x="company", y="co2_emissions", ylabel="CO₂ Emissions", title="CO₂ Emissions")
-        with col2:
-            ""
+pg.run()
