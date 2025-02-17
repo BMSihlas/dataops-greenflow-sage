@@ -1,6 +1,6 @@
 import os
 import sys
-from fastapi import FastAPI, HTTPException, Depends, Header, APIRouter, Query, Security, status
+from fastapi import FastAPI, HTTPException, Depends, Header, APIRouter, Query, Security, status, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.engine.base import Engine
 from dotenv import load_dotenv, find_dotenv
@@ -8,9 +8,11 @@ from db.utils import get_db_engine, fetch_table_data, register_user, login_user
 from db.load_data import main as deploy_parquet_data
 from db.process_insights import main as process_insights
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 import jwt
 import datetime
+from pathlib import Path
+import pandas as pd
 
 ENV_VARS: list[str] = ["API_SECRET_KEY", "API_AUTH_SECRET_KEY"]
 
@@ -31,6 +33,7 @@ API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 API_AUTH_SECRET_KEY = os.getenv("API_AUTH_SECRET_KEY")
 ALGORITHM: str = "HS256"
 TTL = 24 * 60  # 24 hours
+DATA_DIR = Path("/app/data")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -129,14 +132,43 @@ def get_sensor_data(limit: int = 10, username: str = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching sensor data: {str(e)}")
 
+class LoadDataRequest(BaseModel):
+    filename: Optional[str] = None
+
 @router.post("/load-data")
-def load_data(x_api_key: str = Header(None), username: str = Depends(get_current_user)):
+def load_data(
+    request: LoadDataRequest,
+    x_api_key: str = Header(None),
+    username: str = Depends(get_current_user)
+):
     """Secure API to load Parquet data into PostgreSQL."""
     if not x_api_key or x_api_key != API_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
+    
+    filename = request.filename.strip() if request.filename else None
+    if filename is not None and filename != "":
+        if not filename.endswith(".parquet"):
+            raise HTTPException(status_code=400, detail="File must be a Parquet file (.parquet)")
 
     try:
-        if deploy_parquet_data():
+        load_success = deploy_parquet_data(filename if filename is not None else "")
+
+        if filename is not None and filename != "":
+            file = DATA_DIR / filename
+            if file.exists():
+                print(f"Attempting to delete: {file}")  # Debugging
+                if os.access(file, os.W_OK):  # Check if write access is allowed
+                    file.unlink(missing_ok=True)
+                    print(f"File deleted: {file}")  # Debugging
+                else:
+                    print(f"File not writable: {file}")  # Debugging
+                    raise HTTPException(status_code=403, detail="File cannot be deleted due to insufficient permissions.")
+            else:
+                print(f"File does not exist: {file}")
+        else:
+            print("No filename provided.")
+
+        if load_success:
             if not process_insights():
                 return {"message": "Failed to load processed insights into PostgreSQL."}
             else:
@@ -230,5 +262,77 @@ def register(request: RegisterRequest):
     except ValueError as e:
         print("Error registering user:", str(e))
         raise HTTPException(status_code=400, detail="Error registering user")
+
+class ParquetFileLoadDataSchema(BaseModel):
+    """Define expected Parquet file structure."""
+    empresa: str
+    energia_kwh: float
+    agua_m3: float
+    co2_emissoes: float
+    setor: str
+
+def validate_parquet(file_path: Path) -> pd.DataFrame:
+    """Validate Parquet file structure using Pydantic."""
+    try:
+        df = pd.read_parquet(file_path)
+
+        # Ensure required columns exist
+        required_columns = ParquetFileLoadDataSchema.__annotations__.keys()
+        missing_columns = set(required_columns) - set(df.columns)
+
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+
+        # Validate each row using Pydantic
+        for _, row in df.iterrows():
+            ParquetFileLoadDataSchema(**row.to_dict())
+
+        return df
+
+    except ValidationError as e:
+        raise ValueError(f"Data validation error: {e}")
+
+    except Exception as e:
+        raise ValueError(f"Invalid Parquet format: {str(e)}")
+
+@router.post("/upload-parquet", status_code=status.HTTP_201_CREATED)
+async def upload_parquet(
+    x_api_key: str = Header(None),
+    file: UploadFile = File(...),
+    username: str = Depends(get_current_user)
+):
+    """Secure API to load Parquet data into PostgreSQL."""
+    if not x_api_key or x_api_key != API_SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
+    
+    """Upload and validate a Parquet file using Pydantic, then store it in /data."""
+    if not file.filename.endswith(".parquet"):
+        raise HTTPException(status_code=400, detail="File must be a Parquet file (.parquet)")
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    file_path = DATA_DIR / file.filename
+    temp_file_path = DATA_DIR / f"temp_{file.filename}"
+
+    if file_path.exists():
+        raise HTTPException(status_code=400, detail="File already exists. Choose a different name.")
+
+    try:
+        # Save the file temporarily
+        with temp_file_path.open("wb") as f:
+            f.write(file.file.read())
+
+        # Validate the file structure
+        validate_parquet(temp_file_path)
+
+        # Rename temp file to final filename only if validation succeeds
+        temp_file_path.rename(file_path)
+
+        return {"message": "File uploaded and validated successfully", "filename": file.filename}
+
+    except ValueError as e:
+        # Remove invalid file
+        temp_file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=str(e))
 
 app.include_router(router)
