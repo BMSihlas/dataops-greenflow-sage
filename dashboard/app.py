@@ -8,7 +8,7 @@ from streamlit_js_eval import streamlit_js_eval
 import time
 
 # Set page configuration
-st.set_page_config(page_title="GreenFlow Sage", layout="wide")
+st.set_page_config(page_title="GreenFlow - Sage Insights", layout="wide")
 
 # Check if user is logged in
 if JWT_TOKEN_SESSION_KEY not in st.session_state:
