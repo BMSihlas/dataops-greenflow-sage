@@ -17,7 +17,7 @@ def plot_bar_chart(data, x, y, ylabel, title=""):
     sns.barplot(data=data, x=x, y=y, hue=x, palette="Blues_r", edgecolor="black", ax=ax, legend=False)
 
     # Rotate labels for better readability
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=14)
 
     # Add gridlines
     ax.grid(axis="y", linestyle="--", alpha=0.7)
@@ -42,7 +42,7 @@ def plot_bar_chart(data, x, y, ylabel, title=""):
 
 def plot_correlation_heatmap(df):
     """Generates a correlation heatmap."""
-    st.subheader("📊 Feature Correlation Heatmap")
+    # st.subheader("📊 Feature Correlation Heatmap")
     fig, ax = plt.subplots(figsize=(10, 5))
     sns.heatmap(df.corr(), annot=True, cmap="coolwarm", ax=ax)
     st.pyplot(fig)

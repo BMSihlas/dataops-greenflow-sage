@@ -163,7 +163,6 @@ def find_user(username: str) -> User:
         raise ValueError("Invalid credentials: User not found")
 
     user_data = df.iloc[0].to_dict()
-    print(f"Found user: {user_data}")
     return User(**user_data)
 
 def login_user(username: str, password: str) -> bool:
@@ -180,7 +179,6 @@ def login_user(username: str, password: str) -> bool:
         ValueError: If username or password are invalid.
     """
     user = find_user(username)
-    print(f"Request password: {password}")
     if not bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
         raise ValueError("Invalid credentials: Password does not match")
     

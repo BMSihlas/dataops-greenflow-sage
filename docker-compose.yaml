@@ -53,9 +53,9 @@ services:
       - "${DASHBOARD_PORT}:${DASHBOARD_PORT}"
     depends_on:
       - api
-    command: ["streamlit", "run", "dashboard/app.py", "--server.port=${DASHBOARD_PORT}", "--server.address=0.0.0.0"]
+    command: ["streamlit", "run", "dashboard/app.py", "--server.port=${DASHBOARD_PORT}", "--server.address=0.0.0.0", "--server.runOnSave", "true", "--server.enableCORS", "true"]
     volumes:
-      - ./dashboard:/app/dashboard
+      - ./dashboard:/app/dashboard:delegated
 
 volumes:
   db_data:
