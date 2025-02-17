@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-from config import API_BASE_URL
+from components.config import API_BASE_URL
 from pydantic import BaseModel
 from typing import Optional
 import streamlit as st
@@ -57,10 +57,23 @@ def fetch_sensor_data(company, sector):
         return pd.DataFrame(response.json().get("sensor_data", []))
     return pd.DataFrame()
 
-def register_user(username, password):
+def register_user(username: str, password: str, confirm_password: str):
     """Register a new user."""
-    response = requests.post(f"{API_BASE_URL}/register", json={"username": username, "password": password})
-    return response.status_code == 201
+    if not password or len(password) < 1:
+        st.toast("Password cannot be empty.", icon="❌")
+        st.stop()
+    if password != confirm_password:
+        st.toast("Passwords do not match.", icon="❌")
+        st.stop()
+
+    try:
+        response = requests.post(f"{API_BASE_URL}/register", json={"username": username, "password": password})
+        response.raise_for_status()
+
+        return response.status_code == 201
+    except requests.RequestException as e:
+        st.toast("Registration failed. Try again.", icon="❌")
+        st.toast(f"Error: {e}", icon="❌")
 
 class User(BaseModel):
     username: str

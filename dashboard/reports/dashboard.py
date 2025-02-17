@@ -14,7 +14,7 @@ def dashboard():
     # Load sector insights
     sector_data = fetch_sector_insights()
     if sector_data is None:
-        st.error("Failed to fetch sector insights. Check API connection.")
+        st.toast("Failed to fetch sector insights. Check API connection.", icon="❌")
         st.stop()
 
     sector_df = pd.DataFrame(sector_data)
