@@ -10,6 +10,7 @@ env/
 # Environment variable files
 .env
 .env.*
+!*.env.example
 
 # Distribution / packaging
 build/
