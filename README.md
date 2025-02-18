@@ -57,6 +57,10 @@ root/
 │   ├── schema.sql
 │   ├── utils.py
 │   
+│   notebooks/
+│   ├── # Python notebooks for data exploration
+|   ├── Sensors_raw_data_insights.ipynb
+│   
 │   .dockerignore
 │   .gitignore
 │   docker-compose.yaml
@@ -67,6 +71,7 @@ root/
 - `dashboard/`: Streamlit dashboard for visualization.
 - `db/`: PostgreSQL setup and data initialization scripts.
 - `data/`: Directory for raw sensor data files.
+- `notebooks/`: Python notebooks for data exploration.
 - `docker-compose.yaml`: Orchestrates the multi-container Docker application.
 
 ## Installation
@@ -101,6 +106,8 @@ Once the services are running:
 - **API**: Access the FastAPI documentation at `http://localhost:8000/docs`. Here, you can explore the available endpoints.
 
 - **Dashboard**: View the interactive dashboard at `http://localhost:8501`. This dashboard visualizes the processed data and provides insights.
+
+- **Notebooks**: You can explore the sensor raw data insights using the Python notebook `notebooks/Sensors_raw_data_insights.ipynb`.
 
 ## Contributing
 
